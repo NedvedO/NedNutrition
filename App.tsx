@@ -2,12 +2,20 @@ import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ConsentScreen } from './src/consent/ConsentScreen';
 import { HomePlaceholder } from './src/home/HomePlaceholder';
+import { NextStepsScreen } from './src/onboarding/NextStepsScreen';
 import { OnboardingFlow } from './src/onboarding/OnboardingFlow';
 import type { MacroProgram } from './src/program/types';
 import { WelcomeCarousel } from './src/welcome/WelcomeCarousel';
 
-type Stage = { name: 'welcome' } | { name: 'onboarding' } | { name: 'home'; program: MacroProgram };
+type Stage =
+  | { name: 'welcome' }
+  | { name: 'consent' }
+  /** `previous` is set when redoing setup, so Back returns to the existing program. */
+  | { name: 'onboarding'; previous?: MacroProgram }
+  | { name: 'nextSteps'; program: MacroProgram }
+  | { name: 'home'; program: MacroProgram };
 
 export default function App() {
   // Not saved yet: the app starts at the welcome screens every launch.
@@ -17,18 +25,33 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       {stage.name === 'welcome' && (
-        <WelcomeCarousel onFinish={() => setStage({ name: 'onboarding' })} />
+        <WelcomeCarousel onFinish={() => setStage({ name: 'consent' })} />
+      )}
+      {stage.name === 'consent' && (
+        <ConsentScreen
+          onBack={() => setStage({ name: 'welcome' })}
+          onAccept={() => setStage({ name: 'onboarding' })}
+        />
       )}
       {stage.name === 'onboarding' && (
         <OnboardingFlow
-          onExit={() => setStage({ name: 'welcome' })}
-          onComplete={(program) => setStage({ name: 'home', program })}
+          onExit={() =>
+            setStage(
+              stage.previous ? { name: 'home', program: stage.previous } : { name: 'consent' },
+            )
+          }
+          onComplete={(program) =>
+            setStage(stage.previous ? { name: 'home', program } : { name: 'nextSteps', program })
+          }
         />
+      )}
+      {stage.name === 'nextSteps' && (
+        <NextStepsScreen onContinue={() => setStage({ name: 'home', program: stage.program })} />
       )}
       {stage.name === 'home' && (
         <HomePlaceholder
           program={stage.program}
-          onRestart={() => setStage({ name: 'onboarding' })}
+          onRestart={() => setStage({ name: 'onboarding', previous: stage.program })}
         />
       )}
     </SafeAreaProvider>

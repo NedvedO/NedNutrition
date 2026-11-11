@@ -24,6 +24,11 @@ export const SLIDES: Slide[] = [
     body: 'Search foods, log your meals, and see your protein, carbs and fat against today’s targets.',
     icon: 'silverware-fork-knife',
   },
+  {
+    headline: 'BUILD THE HABIT',
+    body: 'Every day you log fills in your calendar. Watch your streak grow and let consistency do the work.',
+    icon: 'calendar-check',
+  },
 ];
 
 export const TAGLINE = 'Your nutrition, your numbers.';
