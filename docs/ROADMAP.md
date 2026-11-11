@@ -22,6 +22,9 @@ copy, or artwork.
   insights, habits, body metrics and nutrition cards; tab bar with Strategy
   (current program, redo setup) and More (units, delete my data). Cards that
   need food logging, weigh-ins or Health sync show zeros or "Coming soon"
+- Customize Dashboard: show/hide and reorder the top pages, reorder sections,
+  drag cards within a section, add or remove cards, Consumed/Remaining per
+  nutrient card, reset to defaults
 
 ## Phase 2: Food logging (the MVP in [MVP.md](MVP.md))
 

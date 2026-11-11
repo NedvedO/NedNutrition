@@ -1,12 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import type { DashboardLayout } from '../dashboard/layout';
 import { dateKey } from '../dates';
 import type { LogEntry } from '../nutrition/types';
 import type { MacroProgram, ProgramAnswers } from '../program/types';
 
 export type WeighIn = { date: string; kg: number };
 export type BodyFatEntry = { date: string; percent: number };
-export type Preferences = { weightUnit: 'lb' | 'kg' };
+export type Preferences = {
+  weightUnit: 'lb' | 'kg';
+  /** The user's dashboard arrangement; missing means the default layout. */
+  dashboard?: DashboardLayout;
+};
 
 /** Everything NedNutrition keeps between launches. It is stored only on this device. */
 export type SavedState = {

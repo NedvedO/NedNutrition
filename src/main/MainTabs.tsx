@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CustomizeDashboardScreen } from '../dashboard/CustomizeDashboardScreen';
 import { DashboardScreen } from '../dashboard/DashboardScreen';
+import { sanitizeLayout } from '../dashboard/layout';
 import type { Preferences, SavedState } from '../storage/appState';
 import { colors, spacing, type IconName } from '../theme';
 import { ComingSoonContent, ComingSoonScreen } from './ComingSoonScreen';
@@ -42,9 +44,23 @@ type Props = {
 export function MainTabs({ state, onRedoSetup, onChangePreferences, onDeleteData }: Props) {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [comingSoon, setComingSoon] = useState<{ title: string; message: string } | null>(null);
+  const [customizing, setCustomizing] = useState(false);
   const [today] = useState(() => new Date());
 
   const openFoodLogging = () => setTab('foodLog');
+
+  if (customizing) {
+    return (
+      <CustomizeDashboardScreen
+        initial={sanitizeLayout(state.preferences.dashboard)}
+        onCancel={() => setCustomizing(false)}
+        onSave={(dashboard) => {
+          onChangePreferences({ ...state.preferences, dashboard });
+          setCustomizing(false);
+        }}
+      />
+    );
+  }
 
   if (comingSoon) {
     return (
@@ -62,7 +78,7 @@ export function MainTabs({ state, onRedoSetup, onChangePreferences, onDeleteData
             state={state}
             today={today}
             onComingSoon={(title, message) => setComingSoon({ title, message })}
-            onOpenSettings={() => setTab('more')}
+            onCustomize={() => setCustomizing(true)}
           />
         )}
         {tab === 'foodLog' && (

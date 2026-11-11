@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Sparkline } from '../components/charts';
@@ -7,11 +7,22 @@ import type { SavedState } from '../storage/appState';
 import { colors, spacing } from '../theme';
 import { CardRow, ComingSoonBadge, HabitGrid, MetricCard, SectionHeader, TargetBar } from './cards';
 import {
+  type CardId,
+  isNutrientCard,
+  type NutrientCardId,
+  type PageId,
+  sanitizeLayout,
+  SECTION_NAMES,
+  type SectionId,
+  visiblePages,
+} from './layout';
+import {
   countThisWeek,
   displayWeight,
   entriesSince,
   habitGrid,
   loggedDates,
+  remainingAmount,
   trendWeights,
   weekSummary,
 } from './metrics';
@@ -27,16 +38,30 @@ type Props = {
   today: Date;
   /** Shows a "coming soon" screen for features that aren't built yet. */
   onComingSoon: (title: string, message: string) => void;
-  onOpenSettings: () => void;
+  onCustomize: () => void;
 };
 
-const PAGE_COUNT = 3;
+const NUTRIENT_STYLE: Record<NutrientCardId, { title: string; unit: string; color: string }> = {
+  calories: { title: 'Calories', unit: 'kcal', color: colors.calories },
+  protein: { title: 'Protein', unit: 'g', color: colors.protein },
+  fat: { title: 'Fat', unit: 'g', color: colors.fat },
+  carbs: { title: 'Carbs', unit: 'g', color: colors.carbs },
+};
 
-export function DashboardScreen({ state, today, onComingSoon, onOpenSettings }: Props) {
+/** Sections whose "See All" opens a detail page (coming soon for now). */
+const SEE_ALL: Partial<Record<SectionId, true>> = {
+  insights: true,
+  bodyMetrics: true,
+  nutrition: true,
+};
+
+export function DashboardScreen({ state, today, onComingSoon, onCustomize }: Props) {
   const [pagerWidth, setPagerWidth] = useState(0);
   const [page, setPage] = useState(0);
 
   const { program, foodLog, weighIns, bodyFatEntries, preferences } = state;
+  const layout = sanitizeLayout(preferences.dashboard);
+  const pages = visiblePages(layout);
   const unit = preferences.weightUnit;
   const week = weekSummary(program, foodLog, today);
   const todaySummary = week.find((d) => d.isToday) ?? week[0];
@@ -53,6 +78,155 @@ export function DashboardScreen({ state, today, onComingSoon, onOpenSettings }: 
   const seeAll = (what: string) => () =>
     onComingSoon(what, `Detailed ${what.toLowerCase()} charts are coming soon.`);
 
+  const renderPage = (id: PageId): ReactNode => {
+    switch (id) {
+      case 'weekly':
+        return <WeeklyNutritionPage week={week} />;
+      case 'energy':
+        return <EnergyBalancePage program={program} log={foodLog} today={today} />;
+      case 'daily':
+        return <DailyNutritionPage day={todaySummary} />;
+    }
+  };
+
+  const renderCard = (id: CardId): ReactNode => {
+    if (isNutrientCard(id)) {
+      const { title, unit: nutrientUnit, color } = NUTRIENT_STYLE[id];
+      const consumed = todaySummary.consumed[id];
+      const target = todaySummary.target[id];
+      const remaining = layout.nutritionModes[id] === 'remaining';
+      return (
+        <MetricCard
+          key={id}
+          title={title}
+          subtitle={remaining ? 'Remaining today' : 'Today'}
+          value={String(remaining ? remainingAmount(consumed, target) : Math.round(consumed))}
+          unit={nutrientUnit}
+          onPress={seeAll(title)}
+        >
+          <TargetBar
+            fraction={
+              target > 0 ? (remaining ? (target - consumed) / target : consumed / target) : 0
+            }
+            color={color}
+          />
+        </MetricCard>
+      );
+    }
+
+    switch (id) {
+      case 'expenditure':
+        return (
+          <MetricCard
+            key={id}
+            title="Expenditure"
+            subtitle="Last 7 Days"
+            value={String(program.expenditure)}
+            unit="kcal"
+            onPress={seeAll('Expenditure')}
+          >
+            <Sparkline
+              values={Array(5).fill(program.expenditure)}
+              color={colors.expenditure}
+              band
+              square
+            />
+          </MetricCard>
+        );
+      case 'weightTrend':
+        return (
+          <MetricCard
+            key={id}
+            title="Weight Trend"
+            subtitle="Last 7 Days"
+            value={latestTrend ? displayWeight(latestTrend.kg, unit).toFixed(1) : '—'}
+            unit={unit}
+            onPress={seeAll('Weight trend')}
+          >
+            <Sparkline
+              values={recentTrend.map((w) => displayWeight(w.kg, unit))}
+              color={colors.weight}
+            />
+          </MetricCard>
+        );
+      case 'weighIn':
+        return (
+          <MetricCard
+            key={id}
+            title="Weigh-In"
+            subtitle="Last 30 Days"
+            value={`${countThisWeek(weighInDates, today)}/7`}
+            unit="this week"
+          >
+            <HabitGrid days={habitGrid(weighInDates, today)} />
+          </MetricCard>
+        );
+      case 'foodLogging':
+        return (
+          <MetricCard
+            key={id}
+            title="Food Logging"
+            subtitle="Last 30 Days"
+            value={`${countThisWeek(foodDates, today)}/7`}
+            unit="this week"
+          >
+            <HabitGrid days={habitGrid(foodDates, today)} />
+          </MetricCard>
+        );
+      case 'scaleWeight':
+        return (
+          <MetricCard
+            key={id}
+            title="Scale Weight"
+            subtitle="Last 7 Entries"
+            value={latestWeighIn ? displayWeight(latestWeighIn.kg, unit).toFixed(1) : '—'}
+            unit={unit}
+            onPress={seeAll('Scale weight')}
+          >
+            <Sparkline
+              values={weighIns.slice(-7).map((w) => displayWeight(w.kg, unit))}
+              color={colors.carbs}
+              slots={7}
+            />
+          </MetricCard>
+        );
+      case 'bodyFat':
+        return (
+          <MetricCard
+            key={id}
+            title="Visual Body Fat"
+            subtitle={latestBodyFat ? 'Last 7 Entries' : 'Not set'}
+            value={latestBodyFat ? latestBodyFat.percent.toFixed(1) : '—'}
+            unit={latestBodyFat ? '%' : undefined}
+            onPress={seeAll('Body fat')}
+          >
+            <Sparkline
+              values={bodyFatEntries.slice(-7).map((b) => b.percent)}
+              color={colors.carbs}
+              slots={7}
+            />
+          </MetricCard>
+        );
+      case 'steps':
+        return (
+          <MetricCard
+            key={id}
+            title="Steps"
+            subtitle="Last 7 Days"
+            value="—"
+            onPress={() =>
+              onComingSoon(
+                'Steps',
+                'Steps will come from Apple Health or Health Connect once syncing is ready.',
+              )
+            }
+          >
+            <ComingSoonBadge />
+          </MetricCard>
+        );
+    }
+  };
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.top}>
@@ -62,8 +236,8 @@ export function DashboardScreen({ state, today, onComingSoon, onOpenSettings }: 
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Settings"
-            onPress={onOpenSettings}
+            accessibilityLabel="Customize dashboard"
+            onPress={onCustomize}
             style={styles.settingsButton}
           >
             <MaterialCommunityIcons name="tune-variant" size={24} color={colors.text} />
@@ -84,166 +258,44 @@ export function DashboardScreen({ state, today, onComingSoon, onOpenSettings }: 
           style={{ height: PAGE_HEIGHT }}
         >
           {/* Each page must be a direct child: on web, paging wraps every child to snap it. */}
-          {pagerWidth > 0 && (
-            <View style={{ width: pagerWidth }}>
-              <WeeklyNutritionPage week={week} />
-            </View>
-          )}
-          {pagerWidth > 0 && (
-            <View style={{ width: pagerWidth }}>
-              <EnergyBalancePage program={program} log={foodLog} today={today} />
-            </View>
-          )}
-          {pagerWidth > 0 && (
-            <View style={{ width: pagerWidth }}>
-              <DailyNutritionPage day={todaySummary} />
-            </View>
-          )}
+          {pagerWidth > 0 &&
+            pages.map((id) => (
+              <View key={id} style={{ width: pagerWidth }}>
+                {renderPage(id)}
+              </View>
+            ))}
         </ScrollView>
       </View>
 
       <View style={styles.bottom}>
-        <View
-          style={styles.dots}
-          accessibilityLabel={`Page ${page + 1} of ${PAGE_COUNT}`}
-          accessible
-        >
-          {Array.from({ length: PAGE_COUNT }, (_, i) => (
-            <View key={i} style={[styles.dot, i === page && styles.dotActive]} />
+        {pages.length > 1 && (
+          <View
+            style={styles.dots}
+            accessibilityLabel={`Page ${page + 1} of ${pages.length}`}
+            accessible
+          >
+            {pages.map((id, i) => (
+              <View key={id} style={[styles.dot, i === page && styles.dotActive]} />
+            ))}
+          </View>
+        )}
+
+        {layout.sections
+          .filter((section) => section.cards.length > 0)
+          .map((section) => (
+            <View key={section.id}>
+              <SectionHeader
+                title={SECTION_NAMES[section.id]}
+                onSeeAll={SEE_ALL[section.id] ? seeAll(SECTION_NAMES[section.id]) : undefined}
+              />
+              {pairs(section.cards).map((pair) => (
+                <CardRow key={pair.join('-')}>
+                  {pair.map(renderCard)}
+                  {pair.length === 1 && <View style={styles.cardSpacer} />}
+                </CardRow>
+              ))}
+            </View>
           ))}
-        </View>
-
-        <SectionHeader title="Insights & Analytics" onSeeAll={seeAll('Insights')} />
-        <CardRow>
-          <MetricCard
-            title="Expenditure"
-            subtitle="Last 7 Days"
-            value={String(program.expenditure)}
-            unit="kcal"
-            onPress={seeAll('Expenditure')}
-          >
-            <Sparkline
-              values={Array(5).fill(program.expenditure)}
-              color={colors.expenditure}
-              band
-              square
-            />
-          </MetricCard>
-          <MetricCard
-            title="Weight Trend"
-            subtitle="Last 7 Days"
-            value={latestTrend ? displayWeight(latestTrend.kg, unit).toFixed(1) : '—'}
-            unit={unit}
-            onPress={seeAll('Weight trend')}
-          >
-            <Sparkline
-              values={recentTrend.map((w) => displayWeight(w.kg, unit))}
-              color={colors.weight}
-            />
-          </MetricCard>
-        </CardRow>
-
-        <SectionHeader title="Habits" />
-        <CardRow>
-          <MetricCard
-            title="Weigh-In"
-            subtitle="Last 30 Days"
-            value={`${countThisWeek(weighInDates, today)}/7`}
-            unit="this week"
-          >
-            <HabitGrid days={habitGrid(weighInDates, today)} />
-          </MetricCard>
-          <MetricCard
-            title="Food Logging"
-            subtitle="Last 30 Days"
-            value={`${countThisWeek(foodDates, today)}/7`}
-            unit="this week"
-          >
-            <HabitGrid days={habitGrid(foodDates, today)} />
-          </MetricCard>
-        </CardRow>
-
-        <SectionHeader title="Body Metrics" onSeeAll={seeAll('Body metrics')} />
-        <CardRow>
-          <MetricCard
-            title="Scale Weight"
-            subtitle="Last 7 Entries"
-            value={latestWeighIn ? displayWeight(latestWeighIn.kg, unit).toFixed(1) : '—'}
-            unit={unit}
-            onPress={seeAll('Scale weight')}
-          >
-            <Sparkline
-              values={weighIns.slice(-7).map((w) => displayWeight(w.kg, unit))}
-              color={colors.carbs}
-              slots={7}
-            />
-          </MetricCard>
-          <MetricCard
-            title="Visual Body Fat"
-            subtitle={latestBodyFat ? 'Last 7 Entries' : 'Not set'}
-            value={latestBodyFat ? latestBodyFat.percent.toFixed(1) : '—'}
-            unit={latestBodyFat ? '%' : undefined}
-            onPress={seeAll('Body fat')}
-          >
-            <Sparkline
-              values={bodyFatEntries.slice(-7).map((b) => b.percent)}
-              color={colors.carbs}
-              slots={7}
-            />
-          </MetricCard>
-        </CardRow>
-
-        <SectionHeader title="Nutrition" onSeeAll={seeAll('Nutrition')} />
-        <CardRow>
-          <NutritionCard
-            title="Calories"
-            consumed={todaySummary.consumed.calories}
-            target={todaySummary.target.calories}
-            unit="kcal"
-            color={colors.calories}
-          />
-          <NutritionCard
-            title="Protein"
-            consumed={todaySummary.consumed.protein}
-            target={todaySummary.target.protein}
-            unit="g"
-            color={colors.protein}
-          />
-        </CardRow>
-        <CardRow>
-          <NutritionCard
-            title="Fat"
-            consumed={todaySummary.consumed.fat}
-            target={todaySummary.target.fat}
-            unit="g"
-            color={colors.fat}
-          />
-          <NutritionCard
-            title="Carbs"
-            consumed={todaySummary.consumed.carbs}
-            target={todaySummary.target.carbs}
-            unit="g"
-            color={colors.carbs}
-          />
-        </CardRow>
-
-        <SectionHeader title="General" />
-        <CardRow>
-          <MetricCard
-            title="Steps"
-            subtitle="Last 7 Days"
-            value="—"
-            onPress={() =>
-              onComingSoon(
-                'Steps',
-                'Steps will come from Apple Health or Health Connect once syncing is ready.',
-              )
-            }
-          >
-            <ComingSoonBadge />
-          </MetricCard>
-          <View style={styles.cardSpacer} />
-        </CardRow>
 
         <SectionHeader title="More" />
         <Pressable
@@ -265,24 +317,11 @@ export function DashboardScreen({ state, today, onComingSoon, onOpenSettings }: 
   );
 }
 
-function NutritionCard({
-  title,
-  consumed,
-  target,
-  unit,
-  color,
-}: {
-  title: string;
-  consumed: number;
-  target: number;
-  unit: string;
-  color: string;
-}) {
-  return (
-    <MetricCard title={title} subtitle="Today" value={String(Math.round(consumed))} unit={unit}>
-      <TargetBar fraction={target > 0 ? consumed / target : 0} color={color} />
-    </MetricCard>
-  );
+/** Splits cards into rows of two. */
+function pairs<T>(items: T[]): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2));
+  return rows;
 }
 
 const styles = StyleSheet.create({
