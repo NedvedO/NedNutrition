@@ -12,7 +12,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for where the app is headed and
 ## Status
 
 Phase 1: welcome screens, consent, and onboarding questions that build a
-weekly macro program. Answers are saved on the device. Food logging comes next.
+weekly macro program, then a dashboard. Answers are saved on the device. Food logging comes next.
 
 ## Running it
 

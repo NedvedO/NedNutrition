@@ -17,6 +17,11 @@ export const colors = {
   protein: '#F28B66',
   fat: '#F7CF5C',
   carbs: '#5DBB86',
+  /** Darker background for the lower half of the dashboard. */
+  backgroundDeep: '#141414',
+  card: '#222222',
+  expenditure: '#D9714E',
+  weight: '#B18CFF',
 } as const;
 
 export const spacing = {

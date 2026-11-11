@@ -101,7 +101,11 @@ const SUBTITLES: Partial<Record<StepId, string>> = {
 
 type Props = {
   onExit: () => void;
-  onComplete: (program: MacroProgram, answers: ProgramAnswers) => void;
+  onComplete: (
+    program: MacroProgram,
+    answers: ProgramAnswers,
+    weightUnit: Draft['weight']['unit'],
+  ) => void;
 };
 
 export function OnboardingFlow({ onExit, onComplete }: Props) {
@@ -119,7 +123,7 @@ export function OnboardingFlow({ onExit, onComplete }: Props) {
   const goBack = () => (index === 0 ? onExit() : setIndex(index - 1));
   const goNext = () => {
     if (step === 'ready') {
-      if (program && answers) onComplete(program, answers);
+      if (program && answers) onComplete(program, answers, draft.weight.unit);
       return;
     }
     setIndex(index + 1);

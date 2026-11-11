@@ -18,6 +18,10 @@ copy, or artwork.
 - Answers and program saved on the device; "Delete my data" erases them
 - Calculated weekly macro program (calories, protein, fat, carbs per day)
   with an explanation of how it was built
+- Dashboard: weekly nutrition, energy balance and daily nutrition pages,
+  insights, habits, body metrics and nutrition cards; tab bar with Strategy
+  (current program, redo setup) and More (units, delete my data). Cards that
+  need food logging, weigh-ins or Health sync show zeros or "Coming soon"
 
 ## Phase 2: Food logging (the MVP in [MVP.md](MVP.md))
 
