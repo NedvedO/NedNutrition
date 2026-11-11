@@ -8,9 +8,11 @@ import { NextStepsScreen } from './src/onboarding/NextStepsScreen';
 import { OnboardingFlow } from './src/onboarding/OnboardingFlow';
 import type { MacroProgram } from './src/program/types';
 import { WelcomeCarousel } from './src/welcome/WelcomeCarousel';
+import { WhatYouGetScreen } from './src/welcome/WhatYouGetScreen';
 
 type Stage =
   | { name: 'welcome' }
+  | { name: 'whatYouGet' }
   | { name: 'consent' }
   /** `previous` is set when redoing setup, so Back returns to the existing program. */
   | { name: 'onboarding'; previous?: MacroProgram }
@@ -25,11 +27,17 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       {stage.name === 'welcome' && (
-        <WelcomeCarousel onFinish={() => setStage({ name: 'consent' })} />
+        <WelcomeCarousel onFinish={() => setStage({ name: 'whatYouGet' })} />
+      )}
+      {stage.name === 'whatYouGet' && (
+        <WhatYouGetScreen
+          onBack={() => setStage({ name: 'welcome' })}
+          onContinue={() => setStage({ name: 'consent' })}
+        />
       )}
       {stage.name === 'consent' && (
         <ConsentScreen
-          onBack={() => setStage({ name: 'welcome' })}
+          onBack={() => setStage({ name: 'whatYouGet' })}
           onAccept={() => setStage({ name: 'onboarding' })}
         />
       )}
