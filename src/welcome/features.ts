@@ -66,6 +66,12 @@ export const FEATURES: Feature[] = [
     status: 'comingSoon',
   },
   {
+    title: 'Apple Health and Health Connect sync',
+    description: 'Bring in your steps and weight, and send your nutrition back.',
+    icon: 'heart-pulse',
+    status: 'comingSoon',
+  },
+  {
     title: 'Progress photos and measurements',
     description: 'See your progress in photos and body measurements, not just the scale.',
     icon: 'image',

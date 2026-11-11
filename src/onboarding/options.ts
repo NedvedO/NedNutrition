@@ -1,5 +1,125 @@
 import type { Option } from '../components/OptionCard';
-import type { Diet, Distribution, Goal, ProteinLevel, Training } from '../program/types';
+import type {
+  AthleticLevel,
+  DailyActivity,
+  Diet,
+  Distribution,
+  ExerciseSessions,
+  ExperienceLevel,
+  Goal,
+  ProteinLevel,
+  Sex,
+  Training,
+  WeightTrend,
+  YesNoNotSure,
+} from '../program/types';
+
+// ---- Basics ----
+
+export const SEX_OPTIONS: Option<Sex>[] = [
+  { value: 'female', title: 'Female', icon: 'gender-female' },
+  { value: 'male', title: 'Male', icon: 'gender-male' },
+];
+
+export const WEIGHED_MORE_OPTIONS: Option<YesNoNotSure>[] = [
+  { value: 'yes', title: 'Yes', icon: 'check' },
+  { value: 'no', title: 'No', icon: 'close' },
+  { value: 'notSure', title: 'Not sure', icon: 'help' },
+];
+
+export const WEIGHT_TREND_OPTIONS: Option<WeightTrend>[] = [
+  { value: 'losing', title: 'I’ve been losing weight', icon: 'arrow-down' },
+  { value: 'gaining', title: 'I’ve been gaining weight', icon: 'arrow-up' },
+  { value: 'stable', title: 'My weight has been steady', icon: 'minus' },
+  { value: 'notSure', title: 'Not sure', icon: 'help' },
+];
+
+export const EXERCISE_OPTIONS: Option<ExerciseSessions>[] = [
+  { value: '0', title: 'None', icon: 'calendar-blank' },
+  { value: '1-3', title: '1–3 sessions a week', icon: 'calendar-today' },
+  { value: '4-6', title: '4–6 sessions a week', icon: 'calendar-range' },
+  { value: '7+', title: '7 or more sessions a week', icon: 'calendar-month' },
+];
+
+export const DAILY_ACTIVITY_OPTIONS: Option<DailyActivity>[] = [
+  {
+    value: 'sedentary',
+    title: 'Mostly sitting',
+    description: 'Usually under 5,000 steps a day',
+    icon: 'sofa',
+  },
+  {
+    value: 'moderate',
+    title: 'On my feet some of the day',
+    description: 'Usually 5,000 to 15,000 steps a day',
+    icon: 'walk',
+  },
+  {
+    value: 'veryActive',
+    title: 'On my feet most of the day',
+    description: 'Usually over 15,000 steps a day',
+    icon: 'run',
+  },
+];
+
+function experienceOptions(activity: 'lifting' | 'doing cardio'): Option<ExperienceLevel>[] {
+  return [
+    {
+      value: 'none',
+      title: 'None',
+      description: `Not ${activity} right now`,
+      icon: 'signal-cellular-outline',
+    },
+    {
+      value: 'beginner',
+      title: 'Beginner',
+      description: `${capitalize(activity)} for a year or less`,
+      icon: 'signal-cellular-1',
+    },
+    {
+      value: 'intermediate',
+      title: 'Intermediate',
+      description: `${capitalize(activity)} for 1 to 4 years`,
+      icon: 'signal-cellular-2',
+    },
+    {
+      value: 'advanced',
+      title: 'Advanced',
+      description: `${capitalize(activity)} for 4 years or more`,
+      icon: 'signal-cellular-3',
+    },
+  ];
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+export const LIFTING_OPTIONS = experienceOptions('lifting');
+export const CARDIO_OPTIONS = experienceOptions('doing cardio');
+
+export const ATHLETIC_OPTIONS: Option<AthleticLevel>[] = [
+  {
+    value: 'regular',
+    title: 'I work out regularly',
+    description: 'For fun or health, but I wouldn’t call myself an athlete',
+    icon: 'whistle',
+  },
+  {
+    value: 'athlete',
+    title: 'I’m an athlete',
+    description: 'I train hard and consistently for a sport or event',
+    icon: 'medal',
+  },
+  {
+    value: 'professional',
+    title: 'I’m a professional athlete',
+    description: 'I compete in a sport as my job',
+    icon: 'trophy',
+  },
+];
+
+// ---- Program ----
 
 export const GOAL_OPTIONS: Option<Goal>[] = [
   {

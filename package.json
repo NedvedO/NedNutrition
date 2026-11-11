@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~58.0.17",
     "@expo/vector-icons": "^15.0.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~58.0.23",
     "expo-status-bar": "~58.0.4",
     "react": "19.3.0",
@@ -36,7 +37,10 @@
     "format:check": "prettier --check ."
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "moduleNameMapper": {
+      "^@react-native-async-storage/async-storage$": "<rootDir>/node_modules/@react-native-async-storage/async-storage/jest/async-storage-mock.js"
+    }
   },
   "private": true
 }

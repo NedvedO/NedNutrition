@@ -11,8 +11,11 @@ copy, or artwork.
 ## Phase 1: Onboarding and macro program (in progress)
 
 - Welcome carousel introducing the app
-- Questions about the user: body stats, goal, diet style, training,
-  weekly calorie distribution, protein preference
+- Basics: sex, birthday, height, weight, weight history, body fat, exercise,
+  daily activity, training experience, athletic level, then an editable
+  expenditure estimate (Katch-McArdle with body fat, otherwise Mifflin-St Jeor)
+- Program: goal, diet style, training, weekly calorie distribution, protein
+- Answers and program saved on the device; "Delete my data" erases them
 - Calculated weekly macro program (calories, protein, fat, carbs per day)
   with an explanation of how it was built
 
@@ -51,6 +54,7 @@ copy, or artwork.
 ## Phase 7: Extras
 
 - AI photo logging (describe or photograph a meal to log it)
+- Apple Health / Health Connect sync (needs a development build, not Expo Go)
 - Progress photos and body measurements
 - Accounts and cloud sync across devices
 

@@ -1,12 +1,15 @@
 import type {
+  ActivityProfile,
+  AthleticLevel,
   BodyProfile,
+  DailyActivity,
   DayTarget,
   Diet,
+  ExerciseSessions,
   Goal,
   MacroProgram,
   ProgramAnswers,
   ProteinLevel,
-  Training,
   Weekday,
 } from './types';
 
@@ -18,13 +21,35 @@ export const HIGH_DAY_MULTIPLIER = 1.1;
 
 const KCAL_PER_KG_BODY_WEIGHT = 7700;
 
-/** Activity multipliers applied to resting energy (rough population averages). */
-const ACTIVITY_MULTIPLIER: Record<Training, number> = {
-  none: 1.3,
-  lifting: 1.45,
-  cardio: 1.5,
-  both: 1.6,
+/** Lowest and highest custom expenditure the user can type in (kcal/day). */
+export const EXPENDITURE_MIN = 1000;
+export const EXPENDITURE_MAX = 6000;
+
+/**
+ * The activity multiplier on resting energy is built from three parts:
+ * everyday movement, planned exercise, and how hard the user trains.
+ * These are rough population averages, refined later by adaptive coaching.
+ */
+const DAILY_ACTIVITY_BASE: Record<DailyActivity, number> = {
+  sedentary: 1.2,
+  moderate: 1.375,
+  veryActive: 1.55,
 };
+
+const EXERCISE_ADD: Record<ExerciseSessions, number> = {
+  '0': 0,
+  '1-3': 0.1,
+  '4-6': 0.2,
+  '7+': 0.3,
+};
+
+const ATHLETIC_ADD: Record<AthleticLevel, number> = {
+  regular: 0,
+  athlete: 0.05,
+  professional: 0.1,
+};
+
+const MAX_ACTIVITY_MULTIPLIER = 2.2;
 
 /** Weekly change as a fraction of body weight. */
 const WEEKLY_RATE: Record<Goal, number> = {
@@ -52,14 +77,40 @@ const KETO_CARBS_G = 30;
 
 export const WEEKDAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];
 
-/** Resting energy expenditure using the Mifflin-St Jeor equation (kcal/day). */
-export function restingEnergy({ sex, age, heightCm, weightKg }: BodyProfile): number {
+/**
+ * Resting energy expenditure (kcal/day). Uses the Katch-McArdle equation
+ * (based on lean mass) when body fat is known, otherwise Mifflin-St Jeor.
+ */
+export function restingEnergy({
+  sex,
+  age,
+  heightCm,
+  weightKg,
+  bodyFatPercent,
+}: BodyProfile): number {
+  if (bodyFatPercent !== null) {
+    const leanKg = weightKg * (1 - bodyFatPercent / 100);
+    return 370 + 21.6 * leanKg;
+  }
   const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
   return base + (sex === 'male' ? 5 : -161);
 }
 
-export function estimateExpenditure(profile: BodyProfile, training: Training): number {
-  return Math.round(restingEnergy(profile) * ACTIVITY_MULTIPLIER[training]);
+/** Expenditure comes only from the Basics answers, so it's settled before the program questions. */
+export function activityMultiplier(activity: ActivityProfile): number {
+  const total =
+    DAILY_ACTIVITY_BASE[activity.dailyActivity] +
+    EXERCISE_ADD[activity.exerciseSessions] +
+    ATHLETIC_ADD[activity.athleticLevel];
+  return Math.min(total, MAX_ACTIVITY_MULTIPLIER);
+}
+
+export function estimateExpenditure(profile: BodyProfile, activity: ActivityProfile): number {
+  return Math.round(restingEnergy(profile) * activityMultiplier(activity));
+}
+
+export function isValidExpenditure(kcal: number): boolean {
+  return Number.isFinite(kcal) && kcal >= EXPENDITURE_MIN && kcal <= EXPENDITURE_MAX;
 }
 
 /** Daily calorie change needed to move body weight at the goal's rate. */
@@ -113,9 +164,13 @@ export function distributeCalories(
 }
 
 export function calculateProgram(answers: ProgramAnswers): MacroProgram {
-  const { profile, goal, diet, training, distribution, highDays, protein } = answers;
+  const { profile, activity, goal, diet, distribution, highDays, protein } = answers;
 
-  const expenditure = estimateExpenditure(profile, training);
+  const custom = answers.expenditureOverride;
+  const expenditureIsCustom = custom !== null && isValidExpenditure(custom);
+  const expenditure = expenditureIsCustom
+    ? Math.round(custom)
+    : estimateExpenditure(profile, activity);
   const adjustment = dailyAdjustment(profile.weightKg, goal);
   const rawAverage = expenditure + adjustment;
   const averageCalories = Math.max(rawAverage, CALORIE_FLOOR);
@@ -134,6 +189,7 @@ export function calculateProgram(answers: ProgramAnswers): MacroProgram {
 
   return {
     expenditure,
+    expenditureIsCustom,
     averageCalories,
     dailyAdjustment: averageCalories - expenditure,
     hitCalorieFloor: rawAverage < CALORIE_FLOOR,
@@ -141,9 +197,31 @@ export function calculateProgram(answers: ProgramAnswers): MacroProgram {
   };
 }
 
-/** Unit helpers for the imperial inputs on the onboarding screens. */
+/** Unit helpers for the onboarding screens. */
 export function poundsToKg(pounds: number): number {
   return pounds * 0.45359237;
+}
+
+export function kgToPounds(kg: number): number {
+  return kg / 0.45359237;
+}
+
+export function inchesToCm(inches: number): number {
+  return inches * 2.54;
+}
+
+export function cmToInches(cm: number): number {
+  return cm / 2.54;
+}
+
+/** Whole years between a birth date and `today`. Months are 0-based (0 = January). */
+export function ageOn(birth: { year: number; month: number; day: number }, today: Date): number {
+  let age = today.getFullYear() - birth.year;
+  const hadBirthday =
+    today.getMonth() > birth.month ||
+    (today.getMonth() === birth.month && today.getDate() >= birth.day);
+  if (!hadBirthday) age -= 1;
+  return age;
 }
 
 export function feetInchesToCm(feet: number, inches: number): number {
@@ -154,7 +232,7 @@ export function feetInchesToCm(feet: number, inches: number): number {
 export function validateProfile(profile: BodyProfile): string | null {
   const { age, heightCm, weightKg } = profile;
   if (!Number.isFinite(age) || age < 18 || age > 100) {
-    return 'Enter an age between 18 and 100.';
+    return 'NedNutrition is for adults aged 18 to 100.';
   }
   if (!Number.isFinite(heightCm) || heightCm < 120 || heightCm > 230) {
     return 'Enter a height between 3\'11" and 7\'6".';

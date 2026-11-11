@@ -1,11 +1,12 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '../components/PrimaryButton';
 import type { MacroProgram } from '../program/types';
 import { colors, spacing, WEEKDAY_NAMES } from '../theme';
 
-type Props = { program: MacroProgram; onRestart: () => void };
+type Props = { program: MacroProgram; onRestart: () => void; onDeleteData: () => void };
 
 /** Mondays are 0, matching Weekday; JavaScript's getDay() makes Sunday 0. */
 function todayWeekday(): number {
@@ -13,8 +14,10 @@ function todayWeekday(): number {
 }
 
 /** Stand-in home screen until food logging (Phase 2) is built. */
-export function HomePlaceholder({ program, onRestart }: Props) {
+export function HomePlaceholder({ program, onRestart, onDeleteData }: Props) {
   const today = program.days[todayWeekday()];
+  // Deleting takes two taps so it can't happen by accident.
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -31,6 +34,15 @@ export function HomePlaceholder({ program, onRestart }: Props) {
       </View>
       <View style={styles.footer}>
         <PrimaryButton label="Redo setup" onPress={onRestart} />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => (confirmDelete ? onDeleteData() : setConfirmDelete(true))}
+          style={styles.deleteButton}
+        >
+          <Text style={[styles.deleteText, confirmDelete && styles.deleteConfirm]}>
+            {confirmDelete ? 'Tap again to delete all your data' : 'Delete my data'}
+          </Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -64,4 +76,7 @@ const styles = StyleSheet.create({
   statLabel: { color: colors.textMuted, fontSize: 15 },
   note: { color: colors.textMuted, fontSize: 16, marginTop: 24 },
   footer: { paddingHorizontal: spacing.screen, paddingBottom: 8 },
+  deleteButton: { alignItems: 'center', paddingVertical: 14 },
+  deleteText: { color: colors.textMuted, fontSize: 15 },
+  deleteConfirm: { color: colors.danger },
 });

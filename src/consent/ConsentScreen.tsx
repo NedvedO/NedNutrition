@@ -42,8 +42,8 @@ export function ConsentScreen({ onBack, onAccept }: Props) {
         <Text style={styles.sectionTitle}>Your health data</Text>
         <Text style={styles.body}>
           <Text style={styles.bold}>It stays on your phone. </Text>
-          Your answers, like age, height, weight and goals, are stored only on this device. There’s
-          no account and nothing is uploaded.
+          Your answers (like your age, height, weight, body fat, activity and goals) are stored only
+          on this device. There’s no account and nothing is uploaded.
         </Text>
         <Text style={styles.body}>
           <Text style={styles.bold}>No ads, no selling. </Text>
@@ -51,8 +51,13 @@ export function ConsentScreen({ onBack, onAccept }: Props) {
         </Text>
         <Text style={styles.body}>
           <Text style={styles.bold}>You’re in control. </Text>
-          Change your answers anytime with “Redo setup”, or delete everything by uninstalling the
-          app.
+          Change your answers anytime with “Redo setup”, or erase everything with “Delete my data”
+          on the home screen.
+        </Text>
+        <Text style={styles.body}>
+          <Text style={styles.bold}>Saved for later. </Text>
+          Your weight history and training experience don’t change your numbers yet. They’re kept on
+          your phone for adaptive coaching, a feature that’s coming soon.
         </Text>
       </ScrollView>
 

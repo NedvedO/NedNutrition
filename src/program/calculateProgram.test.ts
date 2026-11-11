@@ -1,22 +1,47 @@
 import {
+  activityMultiplier,
+  ageOn,
   CALORIE_FLOOR,
   calculateProgram,
+  cmToInches,
   dailyAdjustment,
   distributeCalories,
   estimateExpenditure,
   feetInchesToCm,
+  isValidExpenditure,
+  kgToPounds,
   poundsToKg,
   proteinGrams,
   restingEnergy,
   splitMacros,
   validateProfile,
 } from './calculateProgram';
-import type { BodyProfile, ProgramAnswers } from './types';
+import type { ActivityProfile, BodyProfile, ProgramAnswers } from './types';
 
-const profile: BodyProfile = { sex: 'male', age: 25, heightCm: 178, weightKg: 70 };
+const profile: BodyProfile = {
+  sex: 'male',
+  age: 25,
+  heightCm: 178,
+  weightKg: 70,
+  bodyFatPercent: null,
+};
+
+const activity: ActivityProfile = {
+  exerciseSessions: '1-3',
+  dailyActivity: 'moderate',
+  athleticLevel: 'regular',
+};
 
 const answers: ProgramAnswers = {
   profile,
+  activity,
+  history: {
+    weighedMore: 'no',
+    recentTrend: 'stable',
+    liftingExperience: 'beginner',
+    cardioExperience: 'none',
+  },
+  expenditureOverride: null,
   goal: 'lose',
   diet: 'balanced',
   training: 'lifting',
@@ -26,17 +51,63 @@ const answers: ProgramAnswers = {
 };
 
 describe('restingEnergy', () => {
-  it('uses Mifflin-St Jeor for men and women', () => {
+  it('uses Mifflin-St Jeor for men and women when body fat is unknown', () => {
     // 10*70 + 6.25*178 - 5*25 = 1687.5, then +5 for men or -161 for women
     expect(restingEnergy(profile)).toBe(1692.5);
     expect(restingEnergy({ ...profile, sex: 'female' })).toBe(1526.5);
   });
+
+  it('uses Katch-McArdle (lean mass) when body fat is known', () => {
+    // 70 kg at 20% fat = 56 kg lean; 370 + 21.6 * 56 = 1579.6
+    expect(restingEnergy({ ...profile, bodyFatPercent: 20 })).toBeCloseTo(1579.6, 5);
+  });
+});
+
+describe('activityMultiplier', () => {
+  it('adds everyday activity, exercise and athletic level', () => {
+    expect(
+      activityMultiplier({
+        exerciseSessions: '0',
+        dailyActivity: 'sedentary',
+        athleticLevel: 'regular',
+      }),
+    ).toBeCloseTo(1.2, 5);
+    expect(activityMultiplier(activity)).toBeCloseTo(1.475, 5);
+  });
+
+  it('rises with more exercise and a higher athletic level', () => {
+    expect(activityMultiplier({ ...activity, exerciseSessions: '4-6' })).toBeGreaterThan(
+      activityMultiplier(activity),
+    );
+    expect(activityMultiplier({ ...activity, athleticLevel: 'athlete' })).toBeGreaterThan(
+      activityMultiplier(activity),
+    );
+  });
+
+  it('is capped for extreme answers', () => {
+    expect(
+      activityMultiplier({
+        exerciseSessions: '7+',
+        dailyActivity: 'veryActive',
+        athleticLevel: 'professional',
+      }),
+    ).toBeLessThanOrEqual(2.2);
+  });
 });
 
 describe('estimateExpenditure', () => {
-  it('scales resting energy by training', () => {
-    expect(estimateExpenditure(profile, 'none')).toBe(2200);
-    expect(estimateExpenditure(profile, 'both')).toBe(2708);
+  it('scales resting energy by the activity multiplier', () => {
+    // 1692.5 * 1.475 = 2496.4
+    expect(estimateExpenditure(profile, activity)).toBe(2496);
+  });
+});
+
+describe('isValidExpenditure', () => {
+  it('accepts values between 1,000 and 6,000 kcal', () => {
+    expect(isValidExpenditure(2400)).toBe(true);
+    expect(isValidExpenditure(999)).toBe(false);
+    expect(isValidExpenditure(6001)).toBe(false);
+    expect(isValidExpenditure(NaN)).toBe(false);
   });
 });
 
@@ -109,18 +180,33 @@ describe('distributeCalories', () => {
 describe('calculateProgram', () => {
   it('builds seven days of targets', () => {
     const program = calculateProgram(answers);
-    expect(program.expenditure).toBe(2454);
-    expect(program.averageCalories).toBe(2069);
+    expect(program.expenditure).toBe(2496);
+    expect(program.expenditureIsCustom).toBe(false);
+    expect(program.averageCalories).toBe(2111);
     expect(program.dailyAdjustment).toBe(-385);
     expect(program.hitCalorieFloor).toBe(false);
     expect(program.days).toHaveLength(7);
-    expect(program.days[0]).toMatchObject({ calories: 2069, protein: 133 });
+    expect(program.days[0]).toMatchObject({ calories: 2111, protein: 133 });
+  });
+
+  it('uses the expenditure the user typed in', () => {
+    const program = calculateProgram({ ...answers, expenditureOverride: 2600 });
+    expect(program.expenditure).toBe(2600);
+    expect(program.expenditureIsCustom).toBe(true);
+    expect(program.averageCalories).toBe(2215);
+  });
+
+  it('ignores an out-of-range custom expenditure', () => {
+    const program = calculateProgram({ ...answers, expenditureOverride: 200 });
+    expect(program.expenditure).toBe(2496);
+    expect(program.expenditureIsCustom).toBe(false);
   });
 
   it('never targets less than the calorie floor', () => {
     const small: ProgramAnswers = {
       ...answers,
-      profile: { sex: 'female', age: 70, heightCm: 150, weightKg: 45 },
+      profile: { sex: 'female', age: 70, heightCm: 150, weightKg: 45, bodyFatPercent: null },
+      activity: { exerciseSessions: '0', dailyActivity: 'sedentary', athleticLevel: 'regular' },
       training: 'none',
     };
     const program = calculateProgram(small);
@@ -131,9 +217,27 @@ describe('calculateProgram', () => {
 });
 
 describe('unit conversion', () => {
-  it('converts pounds and feet/inches', () => {
+  it('converts pounds, kilograms, feet/inches and centimeters', () => {
     expect(poundsToKg(154)).toBeCloseTo(69.85, 2);
+    expect(kgToPounds(poundsToKg(154))).toBeCloseTo(154, 5);
     expect(feetInchesToCm(5, 10)).toBeCloseTo(177.8, 1);
+    expect(cmToInches(177.8)).toBeCloseTo(70, 5);
+  });
+});
+
+describe('ageOn', () => {
+  const today = new Date(2026, 10, 10); // 10 Nov 2026
+
+  it('counts a birthday earlier this year', () => {
+    expect(ageOn({ year: 2000, month: 0, day: 22 }, today)).toBe(26);
+  });
+
+  it('counts a birthday today', () => {
+    expect(ageOn({ year: 2000, month: 10, day: 10 }, today)).toBe(26);
+  });
+
+  it('does not count a birthday later this year', () => {
+    expect(ageOn({ year: 2000, month: 10, day: 11 }, today)).toBe(25);
   });
 });
 

@@ -27,10 +27,14 @@ export function ProgramReadyStep({ program, goal, proteinPerPound }: Props) {
 
       <Explanation
         number={1}
-        title="Estimated expenditure"
+        title={program.expenditureIsCustom ? 'Your expenditure' : 'Estimated expenditure'}
         value={`${program.expenditure} kcal`}
         valueColor={colors.calories}
-        body="Estimated from your age, sex, height, weight and training. Real expenditure varies from person to person, so treat this as a starting point."
+        body={
+          program.expenditureIsCustom
+            ? 'You entered this yourself. Your targets are built around it.'
+            : 'Estimated from your body and how active you are. Real expenditure varies from person to person, so treat this as a starting point.'
+        }
       />
       <Explanation
         number={2}
